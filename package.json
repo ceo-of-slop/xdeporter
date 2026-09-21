@@ -11,6 +11,6 @@
     "package": "node scripts/package.cjs",
     "package:release": "node scripts/package.cjs --release"
   },
-  "devDependencies": { "playwright": "1.62.1" },
+  "devDependencies": { "playwright": "1.63.0" },
   "engines": { "node": ">=22" }
 }
