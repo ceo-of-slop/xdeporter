@@ -1,16 +1,16 @@
 # xdeporter
 
-Show X's public **account country or region in small blue text beneath the @username**, and filter posts using either a hide list or an allow list. Built for desktop Brave and other Chromium browsers using Manifest V3.
+Show X's public **account country or region in small blue text beneath the display name** (for example, “Libs of TikTok”), and filter posts using either a hide list or an allow list. Built for desktop Brave and other Chromium browsers using Manifest V3.
 
-**v0.1.1 is a beta.** The filtering, popup, and request bridge have automated coverage. Authenticated lookups have not yet been verified in a live X session. X's undocumented endpoint can change; the extension reports lookup failures and leaves unresolved locations as Unknown.
+**v0.1.2 is a beta.** The filtering, popup, and request bridge have automated coverage. Authenticated lookups have not yet been verified in a live X session. X's undocumented endpoint can change; the extension reports lookup failures and leaves unresolved locations as Unknown.
 
-![Example of the small blue country label below the username](docs/timeline-label.png)
+![Example of the small blue country label below the display name](docs/timeline-label.png)
 
 ![xdeporter filter controls](docs/popup.png)
 
 ## Download and install
 
-1. Download **xdeporter-v0.1.1.zip** from [Releases](https://github.com/ceo-of-slop/xdeporter/releases).
+1. Download **xdeporter-v0.1.2.zip** from [Releases](https://github.com/ceo-of-slop/xdeporter/releases).
 2. Extract the ZIP to a permanent folder. Keep that folder after installing.
 3. Open `brave://extensions`, enable **Developer mode**, and click **Load unpacked**.
 4. Select the extracted folder that contains `manifest.json`.

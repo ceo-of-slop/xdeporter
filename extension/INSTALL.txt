@@ -1,4 +1,4 @@
-xdeporter v0.1.1 beta
+xdeporter v0.1.2 beta
 
 1. Extract this ZIP into a permanent folder.
 2. Open brave://extensions in desktop Brave.
@@ -9,6 +9,7 @@ xdeporter v0.1.1 beta
 Updating: replace the contents of your existing extension folder with this
 release, click Reload on its card at brave://extensions, then refresh X.
 
+Country and region labels appear in small blue text beneath the display name.
 Use the extension popup to choose Hide selected or Show only and select countries
 or regions. Unknown locations remain visible unless you enable Hide unknown.
 The master toggle restores hidden posts immediately.

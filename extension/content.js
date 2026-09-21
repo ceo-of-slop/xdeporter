@@ -45,11 +45,10 @@
     const links = [...header.querySelectorAll('a[href]')].filter(anchor => !anchor.classList.contains('xcl-badge') && profileHandle(anchor));
     if (!links.length) return null;
     const handle = profileHandle(links[0]);
-    // X normally has separate display-name and @username links. Anchor the
-    // location to the visible username, without moving any React-owned nodes.
-    const anchor = links.find(link => profileHandle(link) === handle && /^@[a-zA-Z0-9_]{1,15}$/.test(link.textContent.trim())) || links[0];
-    const username = [...anchor.querySelectorAll('span,div')].reverse().find(node => /^@[a-zA-Z0-9_]{1,15}$/.test(node.textContent.trim())) || anchor;
-    return { handle, anchor, username, header };
+    // X places the display-name profile link first, before the @handle.
+    // Use its position without moving any React-owned nodes.
+    const anchor = links[0];
+    return { handle, anchor, header };
   }
   function hideTarget(article) {
     const cell = article.closest('[data-testid="cellInnerDiv"]');
@@ -68,9 +67,9 @@
   function positionLabel(record) {
     if (record.target.classList.contains('xcl-filtered')) return;
     const header = record.header.getBoundingClientRect();
-    const username = record.username.getBoundingClientRect();
-    const left = Math.max(0, username.left - header.left - record.header.clientLeft);
-    const top = username.bottom - header.top - record.header.clientTop;
+    const displayName = record.anchor.getBoundingClientRect();
+    const left = Math.max(0, displayName.left - header.left - record.header.clientLeft);
+    const top = displayName.bottom - header.top - record.header.clientTop;
     record.badge.style.left = `${left}px`;
     record.badge.style.top = `${top}px`;
     record.badge.style.maxWidth = `${Math.min(175, Math.max(0, record.header.clientWidth - left))}px`;
@@ -79,7 +78,7 @@
     const current = author(article);
     let previous = state.get(article);
     if (!current || !settings.enabled) { restore(article); return; }
-    if (previous && (previous.handle !== current.handle || !previous.badge.isConnected || previous.anchor !== current.anchor || previous.username !== current.username || previous.header !== current.header)) {
+    if (previous && (previous.handle !== current.handle || !previous.badge.isConnected || previous.anchor !== current.anchor || previous.header !== current.header)) {
       restore(article);
       previous = null;
     }
