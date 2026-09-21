@@ -14,7 +14,7 @@
   font: 400 10px/12px system-ui, sans-serif !important;
   text-decoration: none !important;
   white-space: nowrap !important;
-  max-width: 175px !important;
+  max-width: 175px;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
