@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "X Deporter",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Show X's public account country or region below display names in small blue text, and filter posts by selected locations.",
   "minimum_chrome_version": "111",
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
   "permissions": ["storage"],
   "background": { "service_worker": "background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "X Deporter - Deport countries from your X feed" },
+  "action": { "default_popup": "popup.html", "default_title": "X Deporter - Deport countries from your X feed", "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" } },
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://www.x.com/*", "https://twitter.com/*", "https://www.twitter.com/*"],

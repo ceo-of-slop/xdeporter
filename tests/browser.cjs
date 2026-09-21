@@ -128,11 +128,11 @@ async function mockChrome(page, initial) {
     popup.on('pageerror', error => errors.push(error.message));
     // Load packaged HTML/CSS/scripts on a local intercepted test origin.
     await popup.route('**/*', route => {
-      const name = path.basename(new URL(route.request().url()).pathname) || 'popup.html';
+      const name = new URL(route.request().url()).pathname.replace(/^\/+/, '') || 'popup.html';
       const file = path.join(ext, name);
       if (name === 'empty') return route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>' });
       if (!fs.existsSync(file)) return route.fulfill({ status: 404 });
-      const contentType = name.endsWith('.css') ? 'text/css' : name.endsWith('.js') ? 'application/javascript' : 'text/html';
+      const contentType = name.endsWith('.png') ? 'image/png' : name.endsWith('.css') ? 'text/css' : name.endsWith('.js') ? 'application/javascript' : 'text/html';
       return route.fulfill({ contentType: contentType + '; charset=utf-8', body: fs.readFileSync(file) });
     });
     await popup.goto('https://extension.test/empty');
