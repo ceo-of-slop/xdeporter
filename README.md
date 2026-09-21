@@ -1,6 +1,6 @@
 # X Deporter
 
-Shows the country or region X reports for each account in small blue text below its display name. Hide posts from countries you select, or show only selected countries. Unknown locations can be hidden too.
+Shows the country or region X reports for each account in small blue text below its name in the timeline, or below its @username in an opened post. Hide posts from countries you select, or show only selected countries. Unknown locations can be hidden too.
 
 ## Install in Chrome, Brave, or Edge
 
