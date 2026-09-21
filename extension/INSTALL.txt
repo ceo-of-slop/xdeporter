@@ -1,10 +1,13 @@
-xdeporter v0.1.0 beta
+xdeporter v0.1.1 beta
 
 1. Extract this ZIP into a permanent folder.
 2. Open brave://extensions in desktop Brave.
 3. Turn on Developer mode, then choose Load unpacked.
 4. Select this folder (the one containing manifest.json).
 5. Pin xdeporter, refresh X, and sign in normally.
+
+Updating: replace the contents of your existing extension folder with this
+release, click Reload on its card at brave://extensions, then refresh X.
 
 Use the extension popup to choose Hide selected or Show only and select countries
 or regions. Unknown locations remain visible unless you enable Hide unknown.

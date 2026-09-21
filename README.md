@@ -1,20 +1,24 @@
 # xdeporter
 
-Show X's public **account country or region beside post authors**, and filter posts using either a hide list or an allow list. Built for desktop Brave and other Chromium browsers using Manifest V3.
+Show X's public **account country or region in small blue text beneath the @username**, and filter posts using either a hide list or an allow list. Built for desktop Brave and other Chromium browsers using Manifest V3.
 
-**v0.1.0 is a beta.** The filtering, popup, and request bridge have automated coverage. Authenticated lookups have not yet been verified in a live X session. X's undocumented endpoint can change; the extension reports lookup failures and leaves unresolved locations as Unknown.
+**v0.1.1 is a beta.** The filtering, popup, and request bridge have automated coverage. Authenticated lookups have not yet been verified in a live X session. X's undocumented endpoint can change; the extension reports lookup failures and leaves unresolved locations as Unknown.
+
+![Example of the small blue country label below the username](docs/timeline-label.png)
 
 ![xdeporter filter controls](docs/popup.png)
 
 ## Download and install
 
-1. Download **xdeporter-v0.1.0.zip** from [Releases](https://github.com/ceo-of-slop/xdeporter/releases).
+1. Download **xdeporter-v0.1.1.zip** from [Releases](https://github.com/ceo-of-slop/xdeporter/releases).
 2. Extract the ZIP to a permanent folder. Keep that folder after installing.
 3. Open `brave://extensions`, enable **Developer mode**, and click **Load unpacked**.
 4. Select the extracted folder that contains `manifest.json`.
 5. Pin **xdeporter** in the extensions menu. Refresh X after installing and sign in normally.
 
 This release is an unpacked extension, not a Chrome Web Store listing or a signed CRX. It does not need a build step, API key, or paid service.
+
+To update, replace the files in your existing extension folder with the new release, click **Reload** on the extension card at `brave://extensions`, and refresh X.
 
 ## Use it
 
