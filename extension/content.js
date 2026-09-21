@@ -51,37 +51,19 @@
     previous?.target?.classList.remove('xcl-filtered');
     previous?.badge?.remove();
     if (previous) {
-      clearHandleSpacing(previous);
       previous.header.classList.remove('xcl-header');
       resize.unobserve(previous.header);
     }
     state.delete(article);
   }
-  function clearHandleSpacing(record) {
-    record.spacingRow?.classList.remove('xcl-handle-row');
-    record.header.classList.remove('xcl-header-stacked');
-    record.spacingRow = null;
-  }
   function positionLabel(record) {
     if (record.target.classList.contains('xcl-filtered')) return;
-    // Measure X's original layout each time so our gap cannot make a header
-    // appear stacked after it returns to an inline layout on resize.
-    clearHandleSpacing(record);
     const name = record.anchor.getBoundingClientRect();
     const handle = record.handleAnchor?.getBoundingClientRect();
-    if (handle && handle.top >= name.bottom - 1) {
-      // Find the @handle branch below the name/handle common ancestor. Reserving
-      // the label's line here pushes the handle down without moving X's nodes.
-      let row = record.handleAnchor;
-      while (row.parentElement && row.parentElement !== record.header && !row.parentElement.contains(record.anchor)) row = row.parentElement;
-      row.classList.add('xcl-handle-row');
-      record.header.classList.add('xcl-header-stacked');
-      record.spacingRow = row;
-    }
+    const labelAnchor = handle && handle.top >= name.bottom - 1 ? handle : name;
     const header = record.header.getBoundingClientRect();
-    const displayName = record.anchor.getBoundingClientRect();
-    const left = Math.max(0, displayName.left - header.left - record.header.clientLeft);
-    const top = displayName.bottom - header.top - record.header.clientTop;
+    const left = Math.max(0, labelAnchor.left - header.left - record.header.clientLeft);
+    const top = labelAnchor.bottom - header.top - record.header.clientTop;
     record.badge.style.left = `${left}px`;
     record.badge.style.top = `${top}px`;
     record.badge.style.maxWidth = `${Math.min(175, Math.max(0, record.header.clientWidth - left))}px`;
