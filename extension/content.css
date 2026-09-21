@@ -1,0 +1,21 @@
+.xcl-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  vertical-align: middle !important;
+  margin-inline: 5px !important;
+  padding: 1px 6px !important;
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent) !important;
+  border-radius: 5px !important;
+  color: inherit !important;
+  background: color-mix(in srgb, currentColor 7%, transparent) !important;
+  font: 500 11px/17px system-ui, sans-serif !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  max-width: 175px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.xcl-badge:focus-visible { outline: 2px solid #1d9bf0 !important; outline-offset: 2px !important; }
+.xcl-badge[data-kind="unknown"] { opacity: .64 !important; }
+.xcl-filtered { display: none !important; }

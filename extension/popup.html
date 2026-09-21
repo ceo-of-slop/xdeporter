@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>xdeporter</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="core.js" defer></script>
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="11"/><ellipse cx="16" cy="16" rx="5" ry="11"/><path d="M5 16h22M7 10h18M7 22h18"/></svg>
+      </div>
+      <div class="brand-copy"><h1>xdeporter <span>for X</span></h1><p>See account locations. Shape your feed.</p></div>
+      <label class="switch master-switch" title="Enable xdeporter">
+        <input type="checkbox" id="enabled" aria-label="Enable xdeporter" disabled>
+        <span class="switch-track" aria-hidden="true"></span>
+      </label>
+    </header>
+
+    <main>
+      <div class="activity-line"><span class="activity-dot" id="activityDot" aria-hidden="true"></span><span id="activityText">Loading your preferences…</span><span class="local-pill">ON DEVICE</span></div>
+      <fieldset id="controls" class="controls" disabled>
+        <section class="section mode-section" aria-labelledby="modeHeading">
+          <h2 id="modeHeading">Your timeline, your choice</h2>
+          <fieldset class="mode-picker">
+            <legend class="sr-only">Country filter mode</legend>
+            <label><input type="radio" name="mode" value="off"><span>Label only</span></label>
+            <label><input type="radio" name="mode" value="block"><span>Hide selected</span></label>
+            <label><input type="radio" name="mode" value="allow"><span>Show only</span></label>
+          </fieldset>
+          <p class="helper mode-description" id="modeDescription"></p>
+        </section>
+
+        <section class="section selection-section" aria-labelledby="selectionHeading">
+          <div class="section-heading"><h2 id="selectionHeading">Countries &amp; regions</h2><span class="selection-count" id="selectionCount">0 selected</span></div>
+          <label class="search-box">
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+            <span class="sr-only">Search countries and regions</span>
+            <input type="search" id="countrySearch" placeholder="Find a country or region…" autocomplete="off" spellcheck="false">
+          </label>
+          <div class="list-toolbar"><span id="resultCount" aria-live="polite"></span><button type="button" class="text-button" id="clearSelection">Clear selection</button></div>
+          <div class="country-list" id="countryList" role="group" aria-label="Countries and regions to filter"></div>
+          <p class="helper region-note">Region labels match separately. Selecting a country does not select its wider region.</p>
+        </section>
+
+        <section class="section preferences" aria-labelledby="preferencesHeading">
+          <h2 id="preferencesHeading" class="sr-only">Preferences</h2>
+          <label class="preference-row"><span class="preference-copy"><span class="preference-title">Hide unknown locations</span><span class="helper">Applies in either filtering mode.</span></span><span class="switch"><input type="checkbox" id="hideUnknown"><span class="switch-track" aria-hidden="true"></span></span></label>
+          <label class="preference-row"><span class="preference-copy"><span class="preference-title">Look up account labels</span><span class="helper">Check visible authors automatically.</span></span><span class="switch"><input type="checkbox" id="autoLookup"><span class="switch-track" aria-hidden="true"></span></span></label>
+        </section>
+      </fieldset>
+
+      <section class="cache-panel" aria-label="Local cache">
+        <div><span class="cache-count" id="cacheCount">0</span><span class="cache-label"> accounts cached</span></div>
+        <button type="button" class="text-button" id="clearCache" disabled>Clear cache</button>
+      </section>
+      <p class="provider-status" id="providerStatus" role="status" hidden></p>
+      <aside class="source-note"><strong>Context, without guesses.</strong> Uses X’s “Account based in” label when available. A country or region label is not proof of nationality or current location. Unknown accounts stay visible unless you hide them.</aside>
+    </main>
+    <footer><span class="footer-lock" aria-hidden="true">●</span><span>Preferences stay in this browser</span><span id="saveStatus" role="status" aria-live="polite"></span></footer>
+  </body>
+</html>

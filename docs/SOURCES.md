@@ -1,0 +1,14 @@
+# Sources and data limits
+
+Research checked on 2026-09-21. These sources establish the implementation approach; no authenticated live X request was made during development.
+
+- [X Help: How to change your country settings](https://help.x.com/en/managing-your-account/how-to-change-country-settings): “About this Account” is public for public accounts, inferred from aggregated IP addresses, and may display a country or a broader region. It is distinct from an optional profile location and the private account country setting. The extension displays the reported country/region, not nationality or a post's physical origin.
+- [X API v2: Get Users by Username](https://docs.x.com/x-api/users/get-user-by-username): the documented `user.fields` options do not include `about_profile` or `account_based_in`. The extension therefore cannot obtain this particular value from the documented user lookup interface.
+- [RhysSullivan's page-context request implementation](https://github.com/RhysSullivan/twitter-account-location-in-username/blob/main/pageScript.js): independently inspected code confirms a GET to `/i/api/graphql/XRqGa7EeokUU5kppkh13EA/AboutAccountQuery`, with `variables={"screenName":"handle"}`, and country value at `data.user_result_by_screen_name.result.about_profile.account_based_in`.
+- [X-Posed's API client](https://github.com/xaitax/x-account-location-device/blob/main/extension/src/background/api-client.js) and [constants](https://github.com/xaitax/x-account-location-device/blob/main/extension/src/shared/constants.js): corroborate the operation ID, use of a signed-in session with authorization and CSRF headers, response path, and optional `core.screen_name` identity check.
+
+The bridge is original code. It captures only a small header allowlist from X's existing same-origin GraphQL calls, holds credentials in page memory, and sends only country/status results to the extension. It does not store credentials, include a hard-coded bearer credential, query a third-party service, infer a country from names/language/bios, or perform account blocks/mutes.
+
+The operation ID above is a source-verified fallback, not a guaranteed current API contract. A subsequently observed AboutAccountQuery updates the bridge's operation ID and feature switches. The bridge does not download or execute code, scan script bundles, fabricate transaction identifiers, or retry rejected requests indefinitely.
+
+X can change its private request requirements, endpoint identifiers, response structure, and page markup. A working signed-in session may still receive a challenge or rejection. Lookups are paced and stop during a reported rate-limit cooldown; missing values remain unknown and network/authentication failures remain unavailable. Rate-limit resets and authentication are held per tab, so additional X tabs may share a server quota. Live compatibility must be checked in the user's signed-in Brave session before claiming production readiness.
