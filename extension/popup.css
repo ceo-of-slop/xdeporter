@@ -19,14 +19,12 @@ button { cursor: pointer; }
 button:disabled { cursor: default; opacity: .45; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 h1, h2, p { margin: 0; }
-h1 { font-size: 17px; font-weight: 650; letter-spacing: -.35px; line-height: 1.35; }
-h1 span { color: var(--muted); font-weight: 400; }
+h1 { font-size: 14px; font-weight: 650; letter-spacing: -.15px; line-height: 1.4; }
 h2 { font-size: 12px; font-weight: 650; letter-spacing: .15px; }
 .masthead { display: flex; flex-shrink: 0; align-items: center; gap: 10px; padding: 20px 20px 17px; }
 .brand-mark { flex: 0 0 38px; height: 38px; display: grid; place-items: center; border: 1px solid #36584f; border-radius: 12px; background: #18342f; }
 .brand-mark svg { width: 29px; height: 29px; stroke: var(--accent); stroke-width: 1.2; }
-.brand-copy { flex: 1; }
-.brand-copy p { margin-top: 2px; color: var(--muted); font-size: 10.5px; }
+.brand-copy { flex: 1; min-width: 0; }
 main { padding: 0 20px; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #415764 transparent; }
 .activity-line { display: flex; align-items: center; gap: 6px; padding-bottom: 15px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10.5px; }
 .activity-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }

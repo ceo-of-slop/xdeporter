@@ -1,4 +1,4 @@
-xdeporter v0.1.2 beta
+xdeporter v0.1.3 beta
 
 1. Extract this ZIP into a permanent folder.
 2. Open brave://extensions in desktop Brave.
