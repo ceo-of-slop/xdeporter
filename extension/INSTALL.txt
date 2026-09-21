@@ -1,4 +1,4 @@
-X Deporter v0.1.7 beta
+X Deporter v0.1.8 beta
 
 1. Extract this ZIP into a permanent folder.
 2. Open brave://extensions, chrome://extensions, or edge://extensions.
