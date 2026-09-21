@@ -232,7 +232,13 @@
           : result;
       } catch {
         return failure(active && taskEpoch === epoch ? 'unavailable' : 'paused', 'The X lookup stopped or could not be read.', 15000);
-      } finally { clearTimer(timeout); controller = null; }
+      } finally {
+        clearTimer(timeout);
+        // Early HTTP/size failures may leave a response body unread. Closing
+        // its request here also prevents a slow body outliving the timeout.
+        controller?.abort();
+        controller = null;
+      }
     }
     async function pump() {
       if (running) return;

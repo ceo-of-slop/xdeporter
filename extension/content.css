@@ -2,6 +2,9 @@
   position: relative !important;
   padding-bottom: 13px !important;
 }
+.xcl-header.xcl-header-stacked { padding-bottom: 0 !important; }
+.xcl-handle-row { padding-top: 13px !important; }
+.xcl-handle-row:is(a) { display: inline-block !important; }
 .xcl-badge {
   position: absolute !important;
   display: block !important;

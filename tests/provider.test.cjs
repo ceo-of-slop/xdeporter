@@ -205,3 +205,22 @@ test('oversized response and malformed JSON are rejected without records', async
     assert.equal(result.record, undefined);
   }
 });
+
+test('declared oversized and rejected HTTP responses close their unread transport', async () => {
+  for (const response of [
+    new Response('{}', { headers: { 'content-length': String(P.MAX_BODY + 1) } }),
+    new Response('unread', { status: 429 }),
+    new Response('unread', { status: 503 })
+  ]) {
+    const h = setup(() => response);
+    h.observe();
+    const result = await h.provider.lookup('alice', 'https://x.com');
+    assert.equal(result.record, undefined);
+    assert.equal(h.calls[0].options.signal.aborted, true);
+    assert.equal(h.timeouts.size, 0);
+  }
+  const h = setup();
+  h.observe();
+  assert.equal((await h.provider.lookup('alice', 'https://x.com')).record.location.key, 'JP');
+  assert.equal(h.calls[0].options.signal.aborted, true);
+});

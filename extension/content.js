@@ -39,7 +39,8 @@
     // X places the display-name profile link first, before the @handle.
     // Use its position without moving any React-owned nodes.
     const anchor = links[0];
-    return { handle, anchor, header };
+    const handleAnchor = links.find(link => link !== anchor && profileHandle(link) === handle && link.textContent.trim().startsWith('@')) || null;
+    return { handle, anchor, handleAnchor, header };
   }
   function hideTarget(article) {
     const cell = article.closest('[data-testid="cellInnerDiv"]');
@@ -50,13 +51,33 @@
     previous?.target?.classList.remove('xcl-filtered');
     previous?.badge?.remove();
     if (previous) {
+      clearHandleSpacing(previous);
       previous.header.classList.remove('xcl-header');
       resize.unobserve(previous.header);
     }
     state.delete(article);
   }
+  function clearHandleSpacing(record) {
+    record.spacingRow?.classList.remove('xcl-handle-row');
+    record.header.classList.remove('xcl-header-stacked');
+    record.spacingRow = null;
+  }
   function positionLabel(record) {
     if (record.target.classList.contains('xcl-filtered')) return;
+    // Measure X's original layout each time so our gap cannot make a header
+    // appear stacked after it returns to an inline layout on resize.
+    clearHandleSpacing(record);
+    const name = record.anchor.getBoundingClientRect();
+    const handle = record.handleAnchor?.getBoundingClientRect();
+    if (handle && handle.top >= name.bottom - 1) {
+      // Find the @handle branch below the name/handle common ancestor. Reserving
+      // the label's line here pushes the handle down without moving X's nodes.
+      let row = record.handleAnchor;
+      while (row.parentElement && row.parentElement !== record.header && !row.parentElement.contains(record.anchor)) row = row.parentElement;
+      row.classList.add('xcl-handle-row');
+      record.header.classList.add('xcl-header-stacked');
+      record.spacingRow = row;
+    }
     const header = record.header.getBoundingClientRect();
     const displayName = record.anchor.getBoundingClientRect();
     const left = Math.max(0, displayName.left - header.left - record.header.clientLeft);
@@ -69,7 +90,7 @@
     const current = author(article);
     let previous = state.get(article);
     if (!current || !settings.enabled) { restore(article); return; }
-    if (previous && (previous.handle !== current.handle || !previous.badge.isConnected || previous.anchor !== current.anchor || previous.header !== current.header)) {
+    if (previous && (previous.handle !== current.handle || !previous.badge.isConnected || previous.anchor !== current.anchor || previous.handleAnchor !== current.handleAnchor || previous.header !== current.header)) {
       restore(article);
       previous = null;
     }

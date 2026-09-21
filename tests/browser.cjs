@@ -65,6 +65,12 @@ async function mockChrome(page, initial) {
     await page.waitForFunction(() => document.querySelectorAll('.xcl-badge').length === 3);
     assert.equal(await page.locator('#alice .xcl-badge').textContent(), 'United States');
     assert.equal(await page.locator('#carol .xcl-badge').textContent(), 'Unknown');
+    assert.equal(await page.evaluate(() => {
+      const name = document.querySelector('#alice strong').getBoundingClientRect();
+      const handle = document.querySelector('#alice [data-testid="User-Name"] > a').getBoundingClientRect();
+      const badge = document.querySelector('#alice .xcl-badge').getBoundingClientRect();
+      return handle.top < name.bottom && badge.top >= name.bottom - 1 && !document.querySelector('#alice .xcl-handle-row');
+    }), true, 'Inline timeline name and handle must stay on the same row');
     await page.evaluate(() => setTestStorage({ settings: { ...testStore.settings, mode: 'block', countries: ['IN'] } }));
     await page.waitForFunction(() => getComputedStyle(document.querySelector('#bob').parentElement).display === 'none');
     assert.equal(await page.locator('#alice').isVisible(), true);
@@ -133,6 +139,61 @@ async function mockChrome(page, initial) {
     assert.deepEqual(errors, []);
     console.log('PASS timeline: badges, block/allow/unknown filters, restore, recycled DOM, lookup spacing');
     await page.close();
+
+    const detail = await browser.newPage({ viewport: { width: 700, height: 500 } });
+    detail.on('pageerror', error => errors.push(error.message));
+    const detailFixture = '<!doctype html><html><head><style>body{font:15px/20px system-ui;background:#000;color:#e7e9ea;margin:24px}article{max-width:550px;padding:16px;border:1px solid #333}a{color:inherit;text-decoration:none}[data-testid="User-Name"]{display:flex;flex-direction:column;gap:0}.name-row,.handle-row{display:flex}.handle-row{color:#71767b}@media(min-width:900px){[data-testid="User-Name"]{flex-direction:row;gap:8px}}</style></head><body><article data-testid="tweet" id="detail"><div data-testid="User-Name"><div class="name-row"><div><a href="/alice"><strong>Alice</strong></a></div></div><div class="handle-row"><div><a href="/alice">@alice</a></div></div></div><p>A detailed post with the country between the name and handle.</p></article></body></html>';
+    await detail.route('**/*', route => route.fulfill({ contentType: 'text/html', body: detailFixture }));
+    await detail.goto('https://x.com/alice/status/1');
+    await mockChrome(detail, { settings: C.DEFAULT_SETTINGS, countryCache: {
+      alice: { location: C.normalizeLocation('United States'), checkedAt: Date.now() },
+      bob: { location: C.normalizeLocation('India'), checkedAt: Date.now() }
+    } });
+    await detail.addStyleTag({ path: path.join(ext, 'content.css') });
+    await detail.addScriptTag({ path: path.join(ext, 'core.js') });
+    await detail.addScriptTag({ path: path.join(ext, 'content.js') });
+    const stackedWithoutOverlap = () => {
+      const name = document.querySelector('.name-row a')?.getBoundingClientRect();
+      const country = document.querySelector('#detail .xcl-badge')?.getBoundingClientRect();
+      const handle = document.querySelector('.handle-row a')?.getBoundingClientRect();
+      return name && country && handle && country.top >= name.bottom - 1 && handle.top >= country.bottom && country.height === 12;
+    };
+    await detail.waitForFunction(stackedWithoutOverlap);
+    assert.equal(await detail.locator('.handle-row').evaluate(node => node.classList.contains('xcl-handle-row')), true);
+    await detail.locator('#detail').screenshot({ path: path.join(artifactDir, 'tweet-detail-v0.1.5.png') });
+    // Header measurement must settle instead of repeatedly toggling spacing.
+    await detail.waitForTimeout(200);
+    await detail.evaluate(() => {
+      window.layoutMutations = 0;
+      new MutationObserver(records => { window.layoutMutations += records.length; }).observe(document.querySelector('[data-testid="User-Name"]'), { attributes: true, attributeFilter: ['class'], subtree: true });
+    });
+    await detail.waitForTimeout(350);
+    assert.equal(await detail.evaluate(() => window.layoutMutations), 0, 'Stacked spacing must not create an observer loop');
+    await detail.setViewportSize({ width: 1100, height: 500 });
+    await detail.waitForFunction(() => {
+      const name = document.querySelector('.name-row a').getBoundingClientRect();
+      const handle = document.querySelector('.handle-row a').getBoundingClientRect();
+      return handle.top < name.bottom && !document.querySelector('.xcl-handle-row,.xcl-header-stacked');
+    });
+    await detail.setViewportSize({ width: 700, height: 500 });
+    await detail.waitForFunction(stackedWithoutOverlap);
+    await detail.evaluate(() => setTestStorage({ settings: { ...testStore.settings, enabled: false } }));
+    await detail.waitForFunction(() => !document.querySelector('.xcl-badge,.xcl-handle-row,.xcl-header-stacked'));
+    await detail.evaluate(() => setTestStorage({ settings: { ...testStore.settings, enabled: true } }));
+    await detail.waitForFunction(stackedWithoutOverlap);
+    // Recycled header nodes must lose our spacing; the replacement stays inline.
+    await detail.evaluate(() => {
+      window.recycledHandleRow = document.querySelector('.handle-row');
+      const header = document.querySelector('[data-testid="User-Name"]');
+      header.style.flexDirection = 'row';
+      header.innerHTML = '<div class="name-row"><a href="/bob"><strong>Bob</strong></a></div><a href="/bob">@bob</a>';
+    });
+    await detail.waitForFunction(() => document.querySelector('#detail .xcl-badge')?.textContent === 'India' && !document.querySelector('.xcl-handle-row,.xcl-header-stacked'));
+    assert.equal(await detail.evaluate(() => recycledHandleRow.classList.contains('xcl-handle-row')), false);
+    assert.equal(await detail.locator('.xcl-badge').count(), 1);
+    assert.deepEqual(errors, []);
+    console.log('PASS tweet detail: name/country/handle ordering, no overlap, responsive layout, cleanup and no observer loop');
+    await detail.close();
 
     const popup = await browser.newPage({ viewport: { width: 420, height: 780 } });
     popup.on('pageerror', error => errors.push(error.message));
