@@ -3,7 +3,32 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { ROOT, FILES, buildZip, readZip, validateFiles, normalizeFile } = require('./package.cjs');
+const { execFileSync } = require('node:child_process');
+const { ROOT, FILES, buildZip, readZip, validateFiles, normalizeFile, parseTrackedEntries, readTrackedBlobs } = require('./package.cjs');
+
+test('Git object packaging ignores later path/index replacement and rejects symlink modes', t => {
+  const scratch = path.join(ROOT, 'work');
+  fs.mkdirSync(scratch, { recursive: true });
+  const repository = fs.mkdtempSync(path.join(scratch, 'package-fixture-'));
+  t.after(() => {
+    assert.equal(path.dirname(path.resolve(repository)), path.resolve(scratch));
+    fs.rmSync(repository, { recursive: true, force: true });
+  });
+  const fixtureGit = (...args) => execFileSync('git', args, { cwd: repository, encoding: 'utf8', windowsHide: true });
+  fixtureGit('init', '--quiet');
+  fs.mkdirSync(path.join(repository, 'extension'));
+  const file = path.join(repository, 'extension', 'source.txt');
+  fs.writeFileSync(file, 'reviewed bytes\n');
+  fixtureGit('add', 'extension/source.txt');
+  const captured = parseTrackedEntries(fixtureGit('ls-files', '--stage', '-z', '--', 'extension'));
+  fs.writeFileSync(file, 'replaced bytes\n');
+  fixtureGit('add', 'extension/source.txt');
+  assert.equal(readTrackedBlobs(captured, repository)['source.txt'].toString(), 'reviewed bytes\n');
+  // Git can represent symlinks even when Windows does not grant symlink privileges.
+  fixtureGit('update-index', '--cacheinfo', `120000,${captured[0].oid},extension/source.txt`);
+  assert.throws(() => parseTrackedEntries(fixtureGit('ls-files', '--stage', '-z', '--', 'extension')), /non-regular/);
+  assert.throws(() => parseTrackedEntries(`120000 blob ${captured[0].oid}\textension/source.txt\0`, true), /non-regular/);
+});
 
 test('archive bytes are deterministic independent of input order', () => {
   const files = { 'a.txt': Buffer.from('alpha'), 'dir/b.txt': Buffer.from('beta') };

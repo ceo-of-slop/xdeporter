@@ -130,9 +130,35 @@ function normalizeFile(name, bytes) {
   return name.endsWith('.png') ? bytes : Buffer.from(bytes.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
 }
 
-function loadSource(release = false) {
-  const tracked = git('ls-files', '-z', '--', 'extension').split('\0').filter(Boolean).map(name => name.slice('extension/'.length)).sort();
-  assert.deepEqual(tracked, FILES, 'Tracked extension files must match the shipping allowlist');
+function parseTrackedEntries(listing, release = false) {
+  return listing.split('\0').filter(Boolean).map(entry => {
+    const match = release
+      ? /^(\d{6}) (blob) ([a-f0-9]{40,64})\t(extension\/.+)$/.exec(entry)
+      : /^(\d{6}) ([a-f0-9]{40,64}) (0)\t(extension\/.+)$/.exec(entry);
+    if (!match || match[1] !== '100644') fail('Refusing non-regular or conflicted Git entry');
+    const name = match[4].slice('extension/'.length);
+    if (!safeName(name)) fail('Unsafe tracked filename');
+    return { name, oid: match[release ? 3 : 2] };
+  });
+}
+
+function readTrackedBlobs(entries, repository = ROOT) {
+  const files = Object.create(null);
+  for (const { name, oid } of entries) {
+    // Read the captured immutable object ID, never a checked filesystem path or
+    // a mutable index/ref. Symlink modes were rejected before reaching this step.
+    const bytes = execFileSync('git', ['cat-file', 'blob', oid], { cwd: repository, windowsHide: true });
+    files[name] = normalizeFile(name, bytes);
+  }
+  return files;
+}
+
+function loadSource(release = false, revision = release ? git('rev-parse', 'HEAD') : null) {
+  const listing = release
+    ? git('ls-tree', '-r', '-z', revision, '--', 'extension')
+    : git('ls-files', '--stage', '-z', '--', 'extension');
+  const entries = parseTrackedEntries(listing, release);
+  assert.deepEqual(entries.map(entry => entry.name).sort(), FILES, 'Tracked extension files must match the shipping allowlist');
   const found = [];
   function walk(directory, prefix = '') {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -145,28 +171,20 @@ function loadSource(release = false) {
   }
   walk(path.join(ROOT, 'extension'));
   assert.deepEqual(found.sort(), FILES, 'Extension directory contains unexpected or missing files');
-  const files = Object.create(null);
-  for (const name of FILES) {
-    const file = path.join(ROOT, 'extension', name);
-    const stat = fs.lstatSync(file);
-    if (!stat.isFile() || stat.isSymbolicLink()) fail(`Refusing non-regular file: ${name}`);
-    const bytes = release
-      ? execFileSync('git', ['show', `HEAD:extension/${name}`], { cwd: ROOT, windowsHide: true })
-      : fs.readFileSync(file);
-    files[name] = normalizeFile(name, bytes);
-  }
-  return files;
+  return readTrackedBlobs(entries);
 }
 
 function packageExtension(release = false) {
-  const files = loadSource(release);
+  const revision = release ? git('rev-parse', 'HEAD') : null;
+  const files = loadSource(release, revision);
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const manifest = validateFiles(files, pkg.version);
   if (release) {
     if (git('status', '--porcelain', '--untracked-files=all')) fail('Release requires a clean working tree');
     const expected = `v${manifest.version}`;
     if (process.env.GITHUB_REF && process.env.GITHUB_REF !== `refs/tags/${expected}`) fail('Workflow tag and manifest version differ');
-    assert.equal(git('rev-parse', `refs/tags/${expected}^{commit}`), git('rev-parse', 'HEAD'), 'Release tag must point to HEAD');
+    assert.equal(git('rev-parse', 'HEAD'), revision, 'Release commit changed during packaging');
+    assert.equal(git('rev-parse', `refs/tags/${expected}^{commit}`), revision, 'Release tag must point to the packaged commit');
   }
   const zip = buildZip(files);
   const extracted = readZip(zip);
@@ -182,7 +200,7 @@ function packageExtension(release = false) {
   return { zip, digest, files };
 }
 
-module.exports = { FILES, ROOT, buildZip, readZip, validateFiles, normalizeFile, loadSource, packageExtension };
+module.exports = { FILES, ROOT, buildZip, readZip, validateFiles, normalizeFile, parseTrackedEntries, readTrackedBlobs, loadSource, packageExtension };
 if (require.main === module) {
   try {
     const args = process.argv.slice(2);

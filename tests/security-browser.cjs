@@ -123,7 +123,10 @@ async function observeSession(page, { authorization = GOOD_AUTH, csrf = GOOD_CSR
     await page.evaluate(async () => {
       await new Promise(resolve => {
         const sentinel = 'security-test-postmessage-drained';
-        const listener = event => { if (event.data === sentinel) { window.removeEventListener('message', listener); resolve(); } };
+        const listener = event => {
+          if (event.source !== window || event.origin !== location.origin) return;
+          if (event.data === sentinel) { window.removeEventListener('message', listener); resolve(); }
+        };
         window.addEventListener('message', listener);
         for (let i = 0; i < 10000; i++) {
           const variant = i % 4;
