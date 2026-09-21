@@ -12,3 +12,7 @@ Shows the country or region X reports for each account in small blue text below 
 6. Refresh X, then open **X Deporter** from your extensions menu to choose your filters.
 
 To update, replace the files in the same folder, click **Reload** on the extension’s card, and refresh X.
+
+Filters apply to the post's author, not accounts inside quotes. Pending lookups are hidden by default while filtering; use **Hide unknown locations** for accounts X cannot locate. X's label is an estimate, not proof of nationality.
+
+**Privacy:** Settings and cached locations stay in your browser. X Deporter temporarily reads selected X session headers into extension memory to request account locations from X; it never saves those headers or sends data to third parties. Disabling lookups clears that state. X's private API can change. [Details](docs/SOURCES.md) · [Security](SECURITY.md)

@@ -5,28 +5,19 @@
   let settings = C.normalizeSettings();
   let cache = Object.create(null);
   let loaded = false;
-  let ready = false;
   let scanTimer;
   let inFlight = null;
-  let requestNumber = 0;
   let nextLookup = 0;
   let pausedUntil = 0;
-  let lastStatus = '';
   const failures = new Map();
   const visibleHandles = new Set();
   const observedArticles = new Set();
   const viewportArticles = new Set();
   const state = new WeakMap();
-  const runId = Math.random().toString(36).slice(2);
+  const dirtyArticles = new Set();
 
   function send(message) {
     try { return Promise.resolve(chrome.runtime.sendMessage(message)).catch(() => null); } catch { return Promise.resolve(null); }
-  }
-  function status(stateName, message) {
-    const signature = stateName + message;
-    if (signature === lastStatus) return;
-    lastStatus = signature;
-    send({ type: 'PROVIDER_STATUS', state: stateName, message });
   }
   function cacheRecord(handle) {
     return Object.hasOwn(cache, handle) && C.isFresh(cache[handle]) ? cache[handle] : null;
@@ -109,17 +100,23 @@
       previous.badge.title = title;
       previous.badge.setAttribute('aria-label', label + '. ' + title);
     }
-    previous.target.classList.toggle('xcl-filtered', C.shouldHide(place, settings));
+    previous.target.classList.toggle('xcl-filtered', C.shouldHide(place, settings, !record));
     positionLabel(previous);
   }
-  const resize = new ResizeObserver(() => schedule());
+  const resize = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      const article = entry.target.closest(ARTICLE);
+      if (article) dirtyArticles.add(article);
+    }
+    schedule(false);
+  });
   const intersection = new IntersectionObserver(entries => {
     for (const entry of entries) {
       // Remember eligibility while filtered: display:none should not cancel a lookup.
       if (entry.isIntersecting) viewportArticles.add(entry.target);
       else if (!state.get(entry.target)?.target.classList.contains('xcl-filtered')) viewportArticles.delete(entry.target);
     }
-    schedule();
+    schedule(false);
   }, { rootMargin: '600px 0px' });
 
   function scan() {
@@ -134,100 +131,89 @@
         intersection.unobserve(article);
       }
     }
-    for (const article of document.querySelectorAll(ARTICLE)) {
+    for (const article of observedArticles) {
+      if (dirtyArticles.has(article)) render(article);
+      const record = state.get(article);
+      // Hidden unresolved posts cannot intersect again. Keep them in the bounded,
+      // sequential lookup queue so turning on hideUnknown does not strand them.
+      if (record && (viewportArticles.has(article) || ((settings.hideUnknown || settings.hidePending) && !cacheRecord(record.handle)))) visibleHandles.add(record.handle);
+    }
+    dirtyArticles.clear();
+    pump();
+  }
+  function discover(node) {
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_NODE) return;
+    const articles = node.matches?.(ARTICLE) ? [node, ...node.querySelectorAll(ARTICLE)] : node.querySelectorAll(ARTICLE);
+    for (const article of articles) {
       if (!observedArticles.has(article)) {
         observedArticles.add(article);
         intersection.observe(article);
         const rect = article.getBoundingClientRect();
         if (rect.bottom >= -600 && rect.top <= innerHeight + 600) viewportArticles.add(article);
       }
-      render(article);
-      const record = state.get(article);
-      // Hidden unresolved posts cannot intersect again. Keep them in the bounded,
-      // sequential lookup queue so turning on hideUnknown does not strand them.
-      if (record && (viewportArticles.has(article) || (settings.hideUnknown && !cacheRecord(record.handle)))) visibleHandles.add(record.handle);
+      dirtyArticles.add(article);
     }
-    pump();
   }
-  function schedule() {
+  function schedule(all = true) {
+    if (all) for (const article of observedArticles) dirtyArticles.add(article);
     if (!scanTimer) scanTimer = setTimeout(scan, 80);
   }
-  function pump() {
+  async function pump() {
     const now = Date.now();
-    if (!loaded || !ready || !settings.enabled || !settings.autoLookup || inFlight || now < nextLookup || now < pausedUntil) return;
+    if (!loaded || !settings.enabled || !settings.autoLookup || inFlight || now < nextLookup || now < pausedUntil) return;
     let handle;
     for (const candidate of visibleHandles) {
       if (!cacheRecord(candidate) && (failures.get(candidate) || 0) < now) { handle = candidate; break; }
     }
     if (!handle) return;
-    const requestId = runId + ':' + (++requestNumber);
-    const timeout = setTimeout(() => {
-      if (inFlight?.requestId !== requestId) return;
-      failures.set(handle, Date.now() + 5 * 60 * 1000);
-      inFlight = null;
-      pausedUntil = Date.now() + 60000;
-      status('unavailable', 'X did not answer. Lookups will resume after a short pause.');
-    }, 15000);
-    inFlight = { handle, requestId, timeout };
+    inFlight = handle;
     nextLookup = now + 2100;
-    window.postMessage({ source: 'x-country-lens-content', type: 'LOOKUP', requestId, handle }, location.origin);
-  }
-  window.addEventListener('message', event => {
-    if (event.source !== window || event.origin !== location.origin) return;
-    const data = event.data;
-    if (!data || data.source !== 'x-country-lens-page') return;
-    if (data.type === 'READY') {
-      ready = true;
-      pausedUntil = 0;
-      status('ready', 'Connected to X. Country lookups are available.');
-      pump();
-      return;
-    }
-    if (data.type === 'STATUS') {
-      if (data.state === 'rate-limited') pausedUntil = Date.now() + 15 * 60 * 1000;
-      if (typeof data.message === 'string') status(data.state, data.message.slice(0, 220));
-      return;
-    }
-    if (data.type !== 'RESULT') return;
-    const handle = C.normalizeHandle(data.handle);
-    if (!handle) return;
-    if (data.requestId) {
-      if (inFlight?.requestId !== data.requestId || inFlight.handle !== handle) return;
-      clearTimeout(inFlight.timeout);
-      inFlight = null;
-    }
+    // Browser runtime responses are bound to this isolated-world request. No
+    // page-origin messages can submit results or initiate extension lookups.
+    const data = await send({ type: 'LOOKUP', handle });
+    inFlight = null;
     if (!settings.enabled) return;
-    if (data.status === 'ok' || data.status === 'unknown') {
-      const place = C.normalizeLocation(data.country);
-      if (data.status === 'ok' && !place) return;
-      cache[handle] = { location: place, checkedAt: Date.now(), source: 'x-about-account' };
+    const record = C.normalizeRecord(data?.record);
+    if ((data?.status === 'ok' || data?.status === 'unknown') && record) {
+      cache[handle] = record;
       failures.delete(handle);
-      send({ type: 'CACHE_RECORD', handle, country: place?.label || null, status: place ? 'ok' : 'unknown' });
-      if (Date.now() >= pausedUntil) status('ready', 'Connected to X. Country lookups are available.');
       schedule();
-    } else if (data.status === 'rate-limited' || data.status === 'unavailable') {
-      pausedUntil = Date.now() + (data.status === 'rate-limited' ? 15 * 60 * 1000 : 60000);
-      // Skip this account after the global pause, allowing other authors through.
-      failures.set(handle, pausedUntil + 5 * 60 * 1000);
-      status(data.status, typeof data.message === 'string' ? data.message.slice(0, 220) : 'X country lookups are temporarily unavailable.');
+    } else {
+      const delay = Number.isFinite(data?.retryAfter) ? Math.min(86400000, Math.max(1000, data.retryAfter)) : 60000;
+      pausedUntil = Date.now() + delay;
+      if (!['waiting', 'paused', 'rate-limited'].includes(data?.status)) failures.set(handle, pausedUntil + 5 * 60 * 1000);
     }
-  });
+  }
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.settings) settings = C.normalizeSettings(changes.settings.newValue);
-    if (changes.countryCache) cache = Object.assign(Object.create(null), changes.countryCache.newValue || {});
+    if (changes.settings) {
+      settings = C.normalizeSettings(changes.settings.newValue);
+      pausedUntil = 0;
+    }
+    if (changes.providerStatus?.newValue?.state === 'ready') pausedUntil = 0;
+    if (changes.countryCache) cache = C.normalizeCache(changes.countryCache.newValue);
     schedule();
   });
-  chrome.storage.local.get(['settings', 'countryCache']).then(saved => {
+  chrome.storage.local.get(['settings', 'countryCache', 'cacheVersion']).then(saved => {
     settings = C.normalizeSettings(saved.settings);
-    cache = Object.assign(Object.create(null), saved.countryCache || {});
+    cache = saved.cacheVersion === 2 ? C.normalizeCache(saved.countryCache) : Object.create(null);
     loaded = true;
+    discover(document);
     schedule();
-    window.postMessage({ source: 'x-country-lens-content', type: 'HELLO' }, location.origin);
-    if (!ready) status('waiting', 'Waiting for an X session. Sign in and refresh your X tab.');
-  }).catch(() => status('unavailable', 'Unable to read extension settings. Reload the extension.'));
+  }).catch(() => {});
   const observer = new MutationObserver(mutations => {
-    if (mutations.some(mutation => !mutation.target.parentElement?.closest('.xcl-badge') && !mutation.target.classList?.contains('xcl-badge'))) schedule();
+    let changed = false;
+    for (const mutation of mutations) {
+      const target = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
+      if (target?.closest('.xcl-badge')) continue;
+      // Badge insertion/removal is ours and cannot change an account identity.
+      if (mutation.type === 'childList' && [...mutation.addedNodes, ...mutation.removedNodes].every(node => node.nodeType === Node.ELEMENT_NODE && node.matches('.xcl-badge'))) continue;
+      const article = target?.closest(ARTICLE);
+      if (article) dirtyArticles.add(article);
+      for (const node of mutation.addedNodes) discover(node);
+      changed = true;
+    }
+    if (changed) schedule(false);
   });
   observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
   // Pump independently of DOM updates so cooldowns expire on a stationary feed.

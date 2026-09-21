@@ -1,22 +1,29 @@
-xdeporter v0.1.4 beta
+X Deporter v0.1.5 beta
 
 1. Extract this ZIP into a permanent folder.
-2. Open brave://extensions in desktop Brave.
+2. Open brave://extensions, chrome://extensions, or edge://extensions.
 3. Turn on Developer mode, then choose Load unpacked.
 4. Select this folder (the one containing manifest.json).
-5. Pin xdeporter, refresh X, and sign in normally.
+5. Pin X Deporter, refresh X, and sign in normally.
 
 Updating: replace the contents of your existing extension folder with this
 release, click Reload on its card at brave://extensions, then refresh X.
 
 Country and region labels appear in small blue text beneath the display name.
 Use the extension popup to choose Hide selected or Show only and select countries
-or regions. Unknown locations remain visible unless you enable Hide unknown.
-The master toggle restores hidden posts immediately.
+or regions. Pending lookups are hidden by default while filtering. Unknown
+locations remain visible unless you enable Hide unknown. Filters apply to the
+post's author, not accounts inside quotes. The master toggle restores hidden
+posts immediately and stops requests.
 
 This beta uses X's public Account based in estimate, not nationality. X's private
-lookup endpoint has not yet been tested with a live signed-in account. If lookups
-fail, check the popup status and open an account's About this account page once.
+lookup endpoint can change. If lookups fail, check the popup status, refresh X,
+and open an account's About this account page once.
+
+Settings and cached locations stay in this browser. Selected X session headers
+are held only in extension memory to request locations directly from X. They are
+never saved or sent to page scripts or third parties. Turning off lookups clears
+that authentication state.
 
 Source, updates and full documentation:
 https://github.com/ceo-of-slop/xdeporter

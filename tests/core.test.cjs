@@ -45,3 +45,31 @@ test('settings and usernames reject malformed input', () => {
   assert.equal(C.normalizeSettings({ mode: 'oops' }).mode, 'block');
   assert.deepEqual(C.normalizeSettings({ countries: ['US', 'US', null, '<evil>'] }).countries, ['US']);
 });
+
+test('pending posts stay hidden until lookup when filtering, separately from confirmed unknowns', () => {
+  const block = { ...C.DEFAULT_SETTINGS, countries: ['US'] };
+  assert.equal(C.shouldHide(null, block, true), true);
+  assert.equal(C.shouldHide(null, block, false), false);
+  assert.equal(C.shouldHide(null, { ...block, hidePending: false }, true), false);
+  assert.equal(C.shouldHide(null, { ...block, mode: 'off' }, true), false);
+  assert.equal(C.shouldHide(null, { ...block, enabled: false }, true), false);
+  assert.equal(C.shouldHide(null, C.DEFAULT_SETTINGS, true), false);
+  assert.equal(C.shouldHide(null, { mode: 'allow' }, true), true);
+});
+
+test('cache normalization rejects malformed records and ignores injected keys and country keys', () => {
+  const now = Date.now();
+  const cache = C.normalizeCache(JSON.parse(JSON.stringify({
+    alice: { location: { label: 'United States', key: 'IN', kind: 'region' }, checkedAt: now },
+    bob: { location: { label: 'Canada\u202e' }, checkedAt: now },
+    carol: { checkedAt: now },
+    dave: { location: null, checkedAt: now + 1000 },
+    erin: { location: null, checkedAt: now },
+    '../evil': { location: null, checkedAt: now }
+  })), now);
+  assert.deepEqual(Object.keys(cache), ['alice', 'erin']);
+  assert.equal(cache.alice.location.key, 'US');
+  assert.equal(Object.getPrototypeOf(cache), null);
+  assert.equal(C.normalizeLocation('Canada\u200b'), null);
+  assert.equal(C.normalizeSettings({ countries: ['region:Canada\u202e'] }).countries.length, 0);
+});

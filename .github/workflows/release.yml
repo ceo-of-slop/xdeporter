@@ -1,0 +1,71 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TEST_ARTIFACT_DIR: test-results
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm test
+      - run: xvfb-run -a node tests/browser.cjs
+      - run: npm run test:package
+      - run: npm run package:release
+      - name: Extract release package
+        run: python3 -c "import glob,zipfile; archives=glob.glob('dist/xdeporter-v*.zip'); assert len(archives)==1; zipfile.ZipFile(archives[0]).extractall('dist/unpacked')"
+      - name: Test the release package in Chromium
+        run: xvfb-run -a node tests/security-browser.cjs
+        env:
+          SECURITY_EXTENSION_DIR: dist/unpacked
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-package
+          path: |
+            dist/xdeporter-v*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+  draft:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-package
+          path: dist
+      - name: Verify checksums
+        working-directory: dist
+        run: sha256sum --strict --check SHA256SUMS.txt
+      - uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: dist/xdeporter-v*.zip
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          printf '%s\n' 'Download the extension ZIP below, extract it, then use Load unpacked on your browser extensions page.' '' 'The ZIP was built from this version tag after unit, browser, security, and package checks. SHA256SUMS.txt verifies file integrity; GitHub artifact attestation verifies the build origin.' > release-notes.md
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "X Deporter $RELEASE_TAG" --notes-file release-notes.md dist/xdeporter-v*.zip dist/SHA256SUMS.txt

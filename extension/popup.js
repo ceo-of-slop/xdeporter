@@ -32,6 +32,7 @@
   function renderSummary() {
     enabled.checked = settings.enabled;
     byId("hideUnknown").checked = settings.hideUnknown;
+    byId("hidePending").checked = settings.hidePending;
     byId("autoLookup").checked = settings.autoLookup;
     document.querySelectorAll('input[name="mode"]').forEach((radio) => {
       radio.checked = radio.value === settings.mode;
@@ -115,7 +116,7 @@
   }
 
   function renderCache(cache) {
-    cacheRecords = cache && typeof cache === "object" && !Array.isArray(cache) ? Object.values(cache) : [];
+    cacheRecords = Object.values(core.normalizeCache(cache));
     cacheCount = cacheRecords.filter((record) => core.isFresh(record)).length;
     byId("cacheCount").textContent = cacheCount.toLocaleString();
     clearCache.disabled = cacheRecords.length === 0;
@@ -159,7 +160,7 @@
       saveSettings();
     });
   });
-  ["hideUnknown", "autoLookup"].forEach((key) => {
+  ["hideUnknown", "hidePending", "autoLookup"].forEach((key) => {
     byId(key).addEventListener("change", (event) => {
       settings[key] = event.target.checked;
       saveSettings();

@@ -12,12 +12,13 @@ const fixture = `<!doctype html><html><head><style>body{font:15px system-ui;marg
 async function mockChrome(page, initial) {
   await page.evaluate(initial => {
     const listeners = [];
-    const store = structuredClone(initial);
+    const store = structuredClone({ cacheVersion: 2, ...initial });
     const change = async patch => {
       const changes = {};
       for (const [key, newValue] of Object.entries(patch)) { changes[key] = { oldValue: store[key], newValue }; store[key] = structuredClone(newValue); }
       listeners.forEach(listener => listener(changes, 'local'));
     };
+    window.testRequests = [];
     window.testStore = store;
     window.setTestStorage = change;
     window.chrome = {
@@ -27,9 +28,16 @@ async function mockChrome(page, initial) {
       },
       runtime: { sendMessage: async message => {
         if (message.type === 'CLEAR_CACHE') await change({ countryCache: {} });
-        if (message.type === 'PROVIDER_STATUS') await change({ providerStatus: message });
-        if (message.type === 'CACHE_RECORD') {
-          await change({ countryCache: { ...store.countryCache, [message.handle]: { location: XCountryCore.normalizeLocation(message.country), checkedAt: Date.now() } } });
+        if (message.type === 'LOOKUP') {
+          testRequests.push({ ...message, at: Date.now() });
+          if (!window.lookupEnabled) return { status: 'waiting', retryAfter: 1000 };
+          if (window.failAlice && message.handle === 'alice') {
+            await change({ providerStatus: { state: 'unavailable', message: 'Fixture error' } });
+            return { status: 'unavailable', retryAfter: 60000 };
+          }
+          const record = { location: XCountryCore.normalizeLocation('Canada'), checkedAt: Date.now(), source: 'x-about-account' };
+          await change({ countryCache: { ...store.countryCache, [message.handle]: record } });
+          return { status: 'ok', record };
         }
         return { ok: true };
       } }
@@ -80,17 +88,19 @@ async function mockChrome(page, initial) {
     await page.evaluate(() => document.querySelectorAll('#alice a:not(.xcl-badge)').forEach(a => a.href = a.getAttribute('href').replace('bob', 'alice')));
     await page.waitForFunction(() => document.querySelector('#alice .xcl-badge').textContent === 'United States');
     await page.screenshot({ path: path.join(artifactDir, 'timeline.png') });
-    // Clear the cache and resolve accounts through the page-message protocol.
+    // Pending accounts are hidden before a lookup; confirmed unknown is a separate preference.
+    await page.evaluate(() => {
+      const countryCache = { ...testStore.countryCache }; delete countryCache.alice;
+      setTestStorage({ countryCache, settings: { ...testStore.settings, mode: 'block', countries: ['US'], autoLookup: false, hidePending: true } });
+    });
+    await page.waitForFunction(() => document.querySelector('#alice .xcl-badge')?.textContent === 'Unknown' && getComputedStyle(document.querySelector('#alice').parentElement).display === 'none');
+    assert.equal(await page.locator('#carol').isVisible(), true);
+    await page.evaluate(() => setTestStorage({ settings: { ...testStore.settings, mode: 'off', autoLookup: true } }));
+    // UI test uses a mocked private runtime; security-browser.cjs loads the real extension.
     await page.evaluate(() => {
       window.testRequests = [];
-      window.addEventListener('message', event => {
-        if (event.data?.source !== 'x-country-lens-content' || event.data.type !== 'LOOKUP') return;
-        testRequests.push({ ...event.data, at: Date.now() });
-        const failed = window.failAlice && event.data.handle === 'alice';
-        window.postMessage({ ...event.data, source: 'x-country-lens-page', type: 'RESULT', status: failed ? 'unavailable' : 'ok', country: failed ? null : 'Canada' }, location.origin);
-      });
+      window.lookupEnabled = true;
       setTestStorage({ countryCache: {} });
-      window.postMessage({ source: 'x-country-lens-page', type: 'READY' }, location.origin);
     });
     await page.waitForFunction(() => document.querySelectorAll('.xcl-badge').length === 3 && [...document.querySelectorAll('.xcl-badge')].every(el => el.textContent === 'Canada'), { timeout: 15000 });
     const requests = await page.evaluate(() => testRequests);
@@ -146,6 +156,8 @@ async function mockChrome(page, initial) {
     await popup.waitForFunction(() => testStore.settings.mode === 'allow' && testStore.settings.countries.includes('US'));
     await popup.locator('#hideUnknown').check();
     await popup.waitForFunction(() => testStore.settings.hideUnknown === true);
+    await popup.locator('#hidePending').uncheck();
+    await popup.waitForFunction(() => testStore.settings.hidePending === false);
     await popup.locator('#countrySearch').fill('');
     assert.equal(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await popup.locator('body').screenshot({ path: path.join(artifactDir, 'popup.png') });
